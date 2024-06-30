@@ -1,3 +1,6 @@
 .substack-cookie
 db_file.json
 __pycache__
+.DS_Store
+*/.DS_Store
+out/
