@@ -91,7 +91,7 @@ def main(args):
                         files_to_delete.add(f'{args.remarkable_folder}/{file}')
                 if stat['CurrentPage'] == 0:
                     unread_hrs = (now_ts - added_ts) / 60 / 60
-                    if args.delete_unread_after_hours is not None args.delete_unread_after_hours >= 0 and unread_hrs >= args.delete_unread_after_hours:
+                    if args.delete_unread_after_hours is not None and args.delete_unread_after_hours >= 0 and unread_hrs >= args.delete_unread_after_hours:
                         print(f"Article not opened after {unread_hrs} hrs, will delete if needed: {file}")
                         delete_if_needed[id] = f'{args.remarkable_folder}/{file}'
     
