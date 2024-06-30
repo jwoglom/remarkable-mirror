@@ -16,9 +16,9 @@ from datetime import datetime
 
 def parse_args():
     a = argparse.ArgumentParser(description="Writes pdfs from folder to reMarkable cloud")
-    a.add_argument('--max-save-count', type=int, default=20, help='Maximum number of articles to save on device')
+    a.add_argument('--max-save-count', type=int, default=None, help='Maximum number of articles to save on device')
     a.add_argument('--delete-already-read', action='store_true', help='Delete articles in reMarkable cloud which are already read')
-    a.add_argument('--delete-unread-after-hours', type=int, default=48, help='If an article has not been opened for this many hours on the device and there are new articles to add, will delete. Set to -1 to disable, or 0 to always replace old articles.')
+    a.add_argument('--delete-unread-after-hours', type=int, default=None, help='If an article has not been opened for this many hours on the device and there are new articles to add, will delete. Set to -1 to disable, or 0 to always replace old articles.')
     a.add_argument('--remarkable-folder', default=None, help='Folder title to write to on Remarkable')
     a.add_argument('--glob', default=None, help='Local glob for files to upload')
     a.add_argument('--remarkable-auth-token', help='For initial authentication with reMarkable: device token')
@@ -91,7 +91,7 @@ def main(args):
                         files_to_delete.add(f'{args.remarkable_folder}/{file}')
                 if stat['CurrentPage'] == 0:
                     unread_hrs = (now_ts - added_ts) / 60 / 60
-                    if args.delete_unread_after_hours >= 0 and unread_hrs >= args.delete_unread_after_hours:
+                    if args.delete_unread_after_hours is not None args.delete_unread_after_hours >= 0 and unread_hrs >= args.delete_unread_after_hours:
                         print(f"Article not opened after {unread_hrs} hrs, will delete if needed: {file}")
                         delete_if_needed[id] = f'{args.remarkable_folder}/{file}'
     
@@ -114,10 +114,10 @@ def main(args):
         fetched_ids.add(id)
         if id not in existing_ids:
             if id not in already_downloaded_ids:
-                if len(new_ids) + len(existing_ids) < args.max_save_count:
+                if args.max_save_count is None or (len(new_ids) + len(existing_ids) < args.max_save_count) or args.max_save_count < 0:
                     print(f'Found new file: {id}: {to_filename(post)}')
                     new_ids.add(id)
-                elif len(delete_if_needed) > 0 and args.delete_unread_after_hours >= 0:
+                elif len(delete_if_needed) > 0 and args.delete_unread_after_hours is not None and args.delete_unread_after_hours >= 0:
                     delete_id = list(sorted(list(delete_if_needed.keys())))[0]
                     print(f'Article in delete_if_needed dropped: {delete_id} {delete_if_needed[delete_id]}')
                     files_to_delete.add(delete_if_needed[delete_id])
