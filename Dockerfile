@@ -1,4 +1,7 @@
-FROM python:3.11-slim as base
+# Pinned to bookworm: python:3.11-slim now resolves to trixie, which this app
+# has never been built against, and it keeps glibc matched with the node stage
+# below that rmapi-js is copied out of.
+FROM python:3.11-slim-bookworm as base
 
 # The following is adapted from:
 # https://sourcery.ai/blog/python-docker/
@@ -21,7 +24,7 @@ RUN npm install --prefix /opt/rmapi --ignore-scripts \
 FROM base AS python-deps
 
 # Install pipenv and compilation dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends gcc software-properties-common
+RUN apt-get update && apt-get install -y --no-install-recommends gcc
 RUN pip install pipenv
 
 RUN mkdir -p /base
