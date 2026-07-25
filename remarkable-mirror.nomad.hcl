@@ -35,8 +35,7 @@ job "remarkable-mirror" {
                 args = [
                     "-c",
                     <<EOF
-                    ln -s /rmapi_config/rmapi.conf /home/appuser/.rmapi
-                    export RMAPI_CONFIG=/rmapi_config/rmapi.conf
+                    export RMAPI_CONFIG_DIR=/rmapi_config/rmapi-js
                     python3 -u main.py --config-folder=/config --tmp-folder=$NOMAD_ALLOC_DIR
                     EOF
                 ]

@@ -9,13 +9,20 @@ ENV LC_ALL C.UTF-8
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONFAULTHANDLER 1
 
+FROM node:22-bookworm-slim AS rmapi
+
+# rmapi-js replaces the ddvk/rmapi Go binary. Installed from the GitHub release
+# tarball: a packed tarball runs no lifecycle scripts, so this needs no bun, no
+# devDependencies, no git and no typecheck. --ignore-scripts belts-and-braces.
+ARG RMAPI_JS_VERSION=12.0.0
+RUN npm install --prefix /opt/rmapi --ignore-scripts \
+    "https://github.com/jwoglom/rmapi-js/releases/download/v${RMAPI_JS_VERSION}/jwoglom-rmapi-js-${RMAPI_JS_VERSION}.tgz"
+
 FROM base AS python-deps
 
 # Install pipenv and compilation dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends gcc wget software-properties-common
+RUN apt-get update && apt-get install -y --no-install-recommends gcc software-properties-common
 RUN pip install pipenv
-RUN wget https://github.com/ddvk/rmapi/releases/download/v0.0.30/rmapi-linuxx86-64.tar.gz
-RUN tar xvzf rmapi-linuxx86-64.tar.gz
 
 RUN mkdir -p /base
 WORKDIR /base
@@ -28,8 +35,21 @@ FROM base AS runtime
 
 # Copy virtualenv from python-deps stage
 COPY --from=python-deps /base/.venv /base/.venv
-COPY --from=python-deps /rmapi /base/.venv/bin/rmapi
 ENV PATH="/base/.venv/bin:$PATH"
+
+# node is dynamically linked against libstdc++, which the slim base omits
+RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=rmapi /usr/local/bin/node /usr/local/bin/node
+COPY --from=rmapi /opt/rmapi /opt/rmapi
+RUN ln -s /opt/rmapi/node_modules/.bin/rmapi-js /usr/local/bin/rmapi-js
+
+# Fail the build rather than the job if the CLI can't actually start: a correct
+# bin entry is not enough, the module graph has to resolve under Node's ESM
+# resolver too.
+RUN rmapi-js --version
+
+ENV NO_COLOR=1
 
 RUN playwright install-deps
 RUN playwright install
@@ -39,6 +59,12 @@ RUN useradd --create-home appuser
 RUN mkdir -p /home/appuser/.cache/
 RUN cp -r /root/.cache/ms-playwright /home/appuser/.cache/
 RUN chown -R appuser /home/appuser/.cache
+
+# rmapi-js needs this writable even when RMAPI_DEVICE_TOKEN is set: the session
+# token and the hash cache are written here.
+ENV RMAPI_CONFIG_DIR=/home/appuser/.config/rmapi-js
+RUN mkdir -p "$RMAPI_CONFIG_DIR" && chown -R appuser /home/appuser/.config
+
 WORKDIR /home/appuser
 USER appuser
 
