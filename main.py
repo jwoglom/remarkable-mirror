@@ -176,10 +176,20 @@ def main(args):
 
     
     print(f'Uploading: {to_upload}')
+    failed_uploads = []
     for f in to_upload:
         print(f'Uploading {f} to {args.remarkable_folder}')
-        rm.put(f, args.remarkable_folder)
+        # A transient network error on one file used to abandon the rest of the
+        # batch. Worse, the reMarkable side often has the upload by then, so the
+        # retry put a second copy on the device.
+        try:
+            rm.put(f, args.remarkable_folder)
+        except Exception as e:
+            failed_uploads.append(f)
+            print(f'Upload failed, continuing: {f}: {type(e).__name__}: {e}')
 
+    if failed_uploads:
+        print(f'{len(failed_uploads)} of {len(to_upload)} uploads failed: {failed_uploads}')
     print('Upload complete')
 
 
@@ -199,6 +209,12 @@ def main(args):
     
     with open(db_file, 'w') as f:
         f.write(json.dumps(article_data))
+
+    # Non-zero exit only when nothing got through, so a couple of flaky uploads
+    # do not mark the run failed and trigger a full retry of the batch.
+    if to_upload and len(failed_uploads) == len(to_upload):
+        raise RuntimeError(
+            f'all {len(to_upload)} uploads failed: {failed_uploads}')
 
 def get_num_pages(path):
     with open(path, 'rb') as f:
